@@ -1248,6 +1248,8 @@
     <ClInclude Include="..\..\..\..\source\util\pixelMatch.h" />
     <ClInclude Include="..\..\..\..\source\server\audiocapture.h" />
     <ClInclude Include="..\..\..\..\source\server\encoding.h" />
+    <ClInclude Include="..\..\..\..\source\server\inputcontrol.h" />
+    <ClInclude Include="..\..\..\..\source\server\json.h" />
     <ClInclude Include="..\..\..\..\source\server\localserver.h" />
     <ClInclude Include="..\..\..\..\source\server\screencapture.h" />
     <ClInclude Include="..\..\..\..\source\util\ptrpool.h" />
@@ -4266,10 +4268,13 @@
     <ClCompile Include="..\..\..\..\source\util\pixelMatch.cpp" />
     <ClCompile Include="..\..\..\..\source\server\audiocapture.cpp" />
     <ClCompile Include="..\..\..\..\source\server\encoding.cpp" />
+    <ClCompile Include="..\..\..\..\source\server\inputcontrol.cpp" />
+    <ClCompile Include="..\..\..\..\source\server\json.cpp" />
     <ClCompile Include="..\..\..\..\source\server\localserver.cpp" />
     <ClCompile Include="..\..\..\..\source\server\mediaroutes.cpp" />
     <ClCompile Include="..\..\..\..\source\server\screencapture.cpp" />
     <ClCompile Include="..\..\..\..\source\test\server\testLocalServer.cpp" />
+    <ClCompile Include="..\..\..\..\source\test\server\testInputControl.cpp" />
     <ClCompile Include="..\..\..\..\source\util\player.cpp" />
     <ClCompile Include="..\..\..\..\source\util\recorder.cpp" />
     <ClCompile Include="..\..\..\..\source\util\ring_buffer.cpp">

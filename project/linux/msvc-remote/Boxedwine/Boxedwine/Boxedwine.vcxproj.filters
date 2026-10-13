@@ -512,6 +512,12 @@
     <ClCompile Include="..\..\..\..\..\source\server\encoding.cpp">
       <Filter>source\server</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\..\source\server\inputcontrol.cpp">
+      <Filter>source\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\source\server\json.cpp">
+      <Filter>source\server</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\..\..\source\server\localserver.cpp">
       <Filter>source\server</Filter>
     </ClCompile>
@@ -2203,6 +2209,12 @@
       <Filter>source\server</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\..\source\server\encoding.h">
+      <Filter>source\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\source\server\inputcontrol.h">
+      <Filter>source\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\source\server\json.h">
       <Filter>source\server</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\..\source\server\localserver.h">

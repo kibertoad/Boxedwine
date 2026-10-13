@@ -421,7 +421,26 @@ void KNativeInputSDL::clearEmscriptenMousePosition() {
 }
 #endif
 
+void KNativeInputSDL::setInjectedPointer(int x, int y) {
+    injectedPointer = true;
+    injectedX = x;
+    injectedY = y;
+}
+
+void KNativeInputSDL::setInjectedModifiers(U32 modifiers) {
+    injectedModifiers = modifiers;
+}
+
 bool KNativeInputSDL::getMousePos(int* x, int* y, bool allowWarp) {
+    if (injectedPointer) {
+        *x = injectedX;
+        *y = injectedY;
+        if (XServer* server = XServer::getServer(true)) {
+            server->mapCapturedMouse(*x, *y);
+            server->clampPointerToGrab(*x, *y);
+        }
+        return checkMousePos(*x, *y, false);
+    }
 #ifdef BOXEDWINE_RECORDER
     if (Player::instance) {
         *x = lastX;
@@ -463,6 +482,13 @@ bool KNativeInputSDL::getMousePos(int* x, int* y, bool allowWarp) {
 
 void KNativeInputSDL::setMousePos(int x, int y) {
     const int guestX = x, guestY = y;
+    if (injectedPointer) {
+        // The guest warped the pointer: move the virtual one, not the host's.
+        if (XServer* server = XServer::getServer(true)) server->warpCapturedMouse(x, y);
+        injectedX = x;
+        injectedY = y;
+        return;
+    }
 #ifdef BOXEDWINE_RECORDER
     if (Player::instance) {
         if (XServer* server = XServer::getServer(true)) server->warpCapturedMouse(x, y);
@@ -596,7 +622,7 @@ U32 KNativeInputSDL::getInputModifiers() {
     if (mods & KMOD_SCROLL) {
         modifiers |= NATIVE_SCROLL_MASK;
     }
-    return modifiers;
+    return modifiers | injectedModifiers;
 }
 
 bool KNativeInputSDL::key(U32 sdlScanCode, U32 key, U32 down) {
@@ -953,6 +979,8 @@ bool KNativeInputSDL::handlSdlEvent(SDL_Event* e) {
         }
         return false;
     } else if (e->type == SDL_MOUSEMOTION) {
+        // The host mouse takes the pointer back from local server input.
+        injectedPointer = false;
         BOXEDWINE_RECORDER_HANDLE_MOUSE_MOVE(e->motion.x, e->motion.y);
         if (ownsRelativeMouseMode) {
             mouseMove(e->motion.xrel, e->motion.yrel, true);
