@@ -46,6 +46,11 @@ static std::map<std::string, std::string> frameHeaders(const ScreenCapture::Fram
 }
 
 static void handleScreenshot(const LocalServer::Request& request, LocalServer::Connection& connection) {
+    std::string format = request.hasParam("format") ? request.param("format") : "png";
+    if (format != "png" && format != "raw") {
+        connection.sendError(400, "unknown format '" + format + "' (png, raw)");
+        return;
+    }
     ScreenCapture::Frame frame;
     if (!ScreenCapture::getFrame(frame)) {
         connection.sendError(503, "nothing has been presented yet");
@@ -71,6 +76,26 @@ static void handleScreenshot(const LocalServer::Request& request, LocalServer::C
         h = (U32)ph;
     }
     U32 pitch = frame.width * 4;
+    if (format == "raw") {
+        // Rows of R, G, B bytes, top-down, without padding.
+        std::vector<U8> rgb((size_t)w * h * 3);
+        U8* out = rgb.data();
+        for (U32 row = 0; row < h; row++) {
+            const U32* src = (const U32*)(frame.pixels.data() + (size_t)(y + row) * pitch) + x;
+            for (U32 col = 0; col < w; col++) {
+                U32 p = src[col];
+                *out++ = (U8)(p >> 16);
+                *out++ = (U8)(p >> 8);
+                *out++ = (U8)p;
+            }
+        }
+        std::map<std::string, std::string> headers = frameHeaders(frame);
+        headers["X-Width"] = std::to_string(w);
+        headers["X-Height"] = std::to_string(h);
+        headers["X-Pixel-Format"] = "RGB24";
+        connection.sendResponse(200, "application/octet-stream", rgb.data(), rgb.size(), headers);
+        return;
+    }
     std::vector<U8> png = ServerEncoding::encodePng(frame.pixels.data() + (size_t)y * pitch + (size_t)x * 4, w, h, pitch);
     if (png.empty()) {
         connection.sendError(500, "PNG encoding failed");
@@ -211,7 +236,7 @@ void startMediaCapture() {
     AudioCapture::start();
 
     LocalServer::addRoute("GET", "/screenshot",
-        "The current picture as PNG. Optional x, y, w, h crop it. Works with -novideo. "
+        "The current picture as PNG, or format=raw for RGB24 bytes with X-Width and X-Height headers. Optional x, y, w, h crop it. Works with -novideo. "
         "X-Frame-Hash and X-Frame-Change-Seq headers identify the picture.",
         handleScreenshot);
     LocalServer::addRoute("GET", "/screen",

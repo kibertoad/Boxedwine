@@ -26,15 +26,22 @@ it: the Wine desktop, every X window Wine draws (GDI, DirectDraw through GDI), a
 (including Direct3D through wined3d) laid over the window it belongs to. The mouse cursor is not
 part of it.
 
-OpenGL frames come from reading the back buffer before each swap. That stalls the game's GL
-pipeline, so it only happens while a consumer asked for the screen in the last two seconds, and at
-most about 60 times a second. A request for the screen while a GL window is presenting waits up to
-250 ms for a frame read after the request, so the answer is never older than the request.
+The server only keeps the copy up to date while a consumer asked for the screen in the last two
+seconds, so a run with nobody watching pays nothing for it. Compositing the desktop costs the UI
+thread a few hundred microseconds a present. OpenGL frames come from reading the back buffer before
+each swap, at most about 60 times a second, which stalls the game's GL pipeline for about as long.
+The first request after an idle spell asks the X server for a full redraw and waits up to 250 ms
+for it, and a request while a GL window is presenting waits up to 250 ms for a frame read after
+the request, so the answer is never older than the request.
 
 ### `GET /screenshot`
 
 The current picture as a PNG (RGB, 8 bits a channel). `x`, `y`, `w` and `h` crop it; a crop
 outside the screen is a 400. Before anything has been presented the answer is a 503.
+
+`format=raw` skips the PNG encoding (about 5 ms for 800x600) and returns the pixels as rows of R,
+G and B bytes, top-down and unpadded, with `X-Width`, `X-Height` and `X-Pixel-Format: RGB24`
+headers.
 
 The `X-Frame-Hash` and `X-Frame-Change-Seq` headers identify the picture, with the same values
 `/screen` reports.

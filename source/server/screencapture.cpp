@@ -19,18 +19,21 @@
 #include "boxedwine.h"
 #include "screencapture.h"
 #include "encoding.h"
+#include "../x11/x11.h"
 
 std::atomic<bool> ScreenCapture::enabled(false);
 
 // Same colour KNativeScreenSDL::clear() paints the desktop with.
 static const U32 DESKTOP_COLOR = (58 << 16) | (110 << 8) | 165;
-// How long a consumer's request keeps GL readback on.
+// How long a consumer's request keeps compositing and GL readback on.
 static const U32 DEMAND_MS = 2000;
 // GL frames are read at most this often, about 60 a second.
 static const U32 GL_READ_INTERVAL_MS = 15;
 // A GL window that swapped within this long counts as presenting.
 static const U32 GL_PRESENTING_MS = 1000;
 static const U32 GL_FRESH_FRAME_WAIT_MS = 250;
+// How long a request after an idle spell waits for the desktop to be composited.
+static const U32 DESKTOP_FRESH_FRAME_WAIT_MS = 250;
 
 namespace {
     struct GlLayer {
@@ -57,6 +60,12 @@ namespace {
     GlLayer gl;
     U64 glFrames = 0;
 
+    // Composites finished since start. desktopStale is set when demand starts
+    // after an idle spell, during which nothing was composited. It is atomic
+    // because noteDemand() runs both with and without mutex held.
+    U64 desktopFrames = 0;
+    std::atomic<bool> desktopStale(false);
+
     std::vector<U32> composed;
     std::vector<U32> current;
     U32 currentWidth = 0;
@@ -75,6 +84,10 @@ namespace {
 
     bool timeBefore(U32 a, U32 b) {
         return (S32)(a - b) < 0;
+    }
+
+    bool demandActive() {
+        return timeBefore(KSystem::getMilliesSinceStart(), demandUntil);
     }
 
     // Builds the picture from the last GDI frame and the GL layer, and
@@ -136,7 +149,9 @@ namespace {
 }
 
 void ScreenCapture::beginComposite(U32 width, U32 height) {
-    if (!enabled || !width || !height) {
+    // Nobody is looking: skip the work. blit() and endComposite() see an empty
+    // work buffer and do nothing either.
+    if (!enabled || !width || !height || !demandActive()) {
         return;
     }
     std::lock_guard<std::mutex> lock(mutex);
@@ -182,7 +197,10 @@ void ScreenCapture::endComposite() {
     gdiWidth = workWidth;
     gdiHeight = workHeight;
     work.clear();
+    desktopFrames++;
+    desktopStale = false;
     publish();
+    cond.notify_all();
 }
 
 bool ScreenCapture::onGlSwap() {
@@ -239,7 +257,15 @@ void ScreenCapture::clearGlFrame(U32 drawableId) {
 }
 
 void ScreenCapture::noteDemand() {
-    demandUntil = KSystem::getMilliesSinceStart() + DEMAND_MS;
+    U32 now = KSystem::getMilliesSinceStart();
+    if (!timeBefore(now, demandUntil.exchange(now + DEMAND_MS))) {
+        // Nothing was composited while idle, and the X server only redraws
+        // when something changes, so ask it for a full redraw.
+        desktopStale = true;
+        if (XServer* server = XServer::getServer(true)) {
+            server->isDisplayDirty = true;
+        }
+    }
 }
 
 bool ScreenCapture::glPresenting() {
@@ -258,9 +284,22 @@ static void waitForFreshGlFrame(std::unique_lock<std::mutex>& lock) {
     });
 }
 
+// After an idle spell the desktop picture is old, so wait for the redraw
+// noteDemand() asked for. Caller holds lock.
+static void waitForFreshDesktop(std::unique_lock<std::mutex>& lock) {
+    if (!desktopStale) {
+        return;
+    }
+    U64 startFrames = desktopFrames;
+    cond.wait_for(lock, std::chrono::milliseconds(DESKTOP_FRESH_FRAME_WAIT_MS), [startFrames]() {
+        return desktopFrames != startFrames;
+    });
+}
+
 bool ScreenCapture::getFrame(Frame& frame, bool freshGl) {
     noteDemand();
     std::unique_lock<std::mutex> lock(mutex);
+    waitForFreshDesktop(lock);
     if (freshGl) {
         waitForFreshGlFrame(lock);
     }
@@ -276,6 +315,7 @@ bool ScreenCapture::getFrame(Frame& frame, bool freshGl) {
 bool ScreenCapture::getInfo(Frame& frame, bool freshGl) {
     noteDemand();
     std::unique_lock<std::mutex> lock(mutex);
+    waitForFreshDesktop(lock);
     if (freshGl) {
         waitForFreshGlFrame(lock);
     }
@@ -313,6 +353,8 @@ void ScreenCapture::reset() {
     gdiWidth = gdiHeight = 0;
     gl = GlLayer();
     glFrames = 0;
+    desktopFrames = 0;
+    desktopStale = false;
     composed.clear();
     current.clear();
     currentWidth = currentHeight = 0;
