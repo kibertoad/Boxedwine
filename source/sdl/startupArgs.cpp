@@ -40,6 +40,7 @@
 #include "mainloop.h"
 #include "../io/fsfilenode.h"
 #include "../server/localserver.h"
+#include "../server/inputcontrol.h"
 #include "../io/fszip.h"
 #include "loader.h"
 #include "kstat.h"
@@ -725,6 +726,7 @@ bool StartUpArgs::apply() {
     // Before the window and audio exist, so a failure leaves nothing to tear down.
     if (this->localServerPort >= 0) {
         startMediaCapture();
+        startInputControl();
         std::string error;
         if (!LocalServer::start((U32)this->localServerPort, error)) {
             kwarn_fmt("Local server could not start: %s", error.c_str());

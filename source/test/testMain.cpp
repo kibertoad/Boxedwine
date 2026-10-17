@@ -195,6 +195,9 @@ void testScreenCaptureComposite();
 void testAudioCaptureMix();
 void testLocalServerEndToEnd();
 void testStartupArgsLocalServerOption();
+void testServerJsonParsing();
+void testInputControlParsing();
+void testInputControlEndToEnd();
 #endif
 void testTerminatingThreadDoesNotEnterFutexWait();
 void testSharedFutexUnmappedAddressReturnsEFAULT();
@@ -1223,6 +1226,9 @@ const TestEntry TEST_ENTRIES[] = {
     {testAudioCaptureMix, "Test audio capture mixing", TEST_ENTRY_SERIAL},
     {testLocalServerEndToEnd, "Test local server end to end", TEST_ENTRY_SERIAL},
     {testStartupArgsLocalServerOption, "Test startup args local server option", TEST_ENTRY_SERIAL},
+    {testServerJsonParsing, "Test local server JSON parsing"},
+    {testInputControlParsing, "Test local server input parsing"},
+    {testInputControlEndToEnd, "Test local server input end to end", TEST_ENTRY_SERIAL},
 #endif
     {testCapturedMouseSensitivity, "Test captured mouse sensitivity and recentering"},
     {testSharedFutexUnmappedAddressReturnsEFAULT, "Test unmapped shared futex returns EFAULT"},

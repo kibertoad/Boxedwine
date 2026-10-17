@@ -45,6 +45,8 @@ public:
     bool getMousePos(int* x, int* y, bool allowWarp = true) override;
     void setMousePos(int x, int y) override;
     U32 getInputModifiers() override;
+    void setInjectedPointer(int x, int y) override;
+    void setInjectedModifiers(U32 modifiers) override;
 
     int xToScreen(int x);
     int xFromScreen(int x);
@@ -77,6 +79,11 @@ private:
 #endif
 	void updateRelativeMouseMode();
 	bool ownsRelativeMouseMode = false;
+    // Set by setInjectedPointer. Read on the main thread, written there too.
+    bool injectedPointer = false;
+    int injectedX = 0;
+    int injectedY = 0;
+    std::atomic<U32> injectedModifiers{0};
 #ifdef __EMSCRIPTEN__
     std::atomic<U32> emscriptenMouseButtons{0};
     std::atomic<U64> emscriptenMousePosition{~(U64)0};

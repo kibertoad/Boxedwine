@@ -28,9 +28,10 @@
 // GDI output (every X window Wine draws) is composited the same way the SDL
 // screen does it: clear(), putBitsOnWnd() per window, present(). OpenGL output
 // goes to a separate host window, so its back buffer is read on swap and laid
-// over the GDI picture at the window's position. Reading a GL frame stalls the
-// game's GL pipeline, so it only happens while a consumer asked for frames in
-// the last two seconds.
+// over the GDI picture at the window's position. Both only happen while a
+// consumer asked for the screen in the last two seconds: compositing costs
+// the UI thread a few hundred microseconds a present, and reading a GL frame
+// stalls the game's GL pipeline.
 //
 // Pixels are 0x00RRGGBB U32s with a pitch of width * 4.
 class ScreenCapture {
@@ -61,11 +62,13 @@ public:
     static void setGlFrame(U32 drawableId, S32 screenX, S32 screenY, U32 width, U32 height, const U8* rows);
     static void clearGlFrame(U32 drawableId);
 
-    // Consumers. Each call counts as demand for GL frames.
+    // Consumers. Each call counts as demand. The first one after an idle spell
+    // asks the X server for a full redraw.
     static void noteDemand();
-    // Copies the current picture. If OpenGL is presenting and freshGl is set,
-    // first waits up to 250 ms for a GL frame read after this call. Returns
-    // false before the first present.
+    // Copies the current picture. After an idle spell, first waits up to 250 ms
+    // for the desktop to be composited. If OpenGL is presenting and freshGl is
+    // set, also waits up to 250 ms for a GL frame read after this call. Returns
+    // false before the first composite.
     static bool getFrame(Frame& frame, bool freshGl = true);
     // Like getFrame without the pixels.
     static bool getInfo(Frame& frame, bool freshGl = true);

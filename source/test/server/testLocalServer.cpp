@@ -244,12 +244,33 @@ void testScreenCaptureComposite() {
     }
     ScreenCapture::reset();
     ScreenCapture::Frame frame;
+    std::vector<U32> window = { RED, GREEN, BLUE, 0xFF000000 | RED };
+
+    // Without demand nothing is composited.
+    presentWindow(4, 3, window, 2, 0, 0);
+    if (ScreenCapture::getFrame(frame)) {
+        testFail("a present without demand was composited");
+    }
+    // The first request after an idle spell waits for the next composite.
+    ScreenCapture::reset();
+    std::thread lateComposite([&window]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        ScreenCapture::noteDemand();
+        presentWindow(4, 3, window, 2, 0, 0);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    bool gotLate = ScreenCapture::getFrame(frame);
+    lateComposite.join();
+    if (!gotLate || pixelAt(frame, 0, 0) != RED) {
+        testFail("a request after an idle spell did not wait for the composite");
+    }
+
+    ScreenCapture::reset();
     if (ScreenCapture::getFrame(frame)) {
         testFail("a frame was reported before any present");
     }
 
     // A 2x2 window hanging off the top left corner of a 4x3 screen.
-    std::vector<U32> window = { RED, GREEN, BLUE, 0xFF000000 | RED };
     presentWindow(4, 3, window, 2, -1, -1);
     if (!ScreenCapture::getFrame(frame) || frame.width != 4 || frame.height != 3 || frame.changeSeq != 1) {
         testFail("first present was not captured");
@@ -431,6 +452,17 @@ void testLocalServerEndToEnd() {
     }
     if (httpGet(port, "/screenshot?x=30&w=8").find("HTTP/1.1 400") != 0) {
         testFail("crop outside the screen was not rejected");
+    }
+    // Raw RGB of the desktop pixel left of the window and the window's first pixel.
+    response = httpGet(port, "/screenshot?format=raw&x=3&y=4&w=2&h=1");
+    body = responseBody(response);
+    const U8 expectedRaw[] = { 58, 110, 165, 0, 0xFF, 0 };
+    if (response.find("HTTP/1.1 200") != 0 || response.find("X-Width: 2") == std::string::npos || response.find("X-Pixel-Format: RGB24") == std::string::npos
+            || body.size() != sizeof(expectedRaw) || memcmp(body.data(), expectedRaw, sizeof(expectedRaw))) {
+        testFail("raw screenshot was wrong: %s", response.substr(0, 200).c_str());
+    }
+    if (httpGet(port, "/screenshot?format=bmp").find("HTTP/1.1 400") != 0) {
+        testFail("unknown screenshot format was not rejected");
     }
 
     body = responseBody(httpGet(port, "/screen"));

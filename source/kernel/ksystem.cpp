@@ -1165,6 +1165,15 @@ U32 KSystem::getRunningProcessCount() {
     return count;
 }
 
+void KSystem::visitProcesses(std::function<void(const KProcessPtr& process)> visitor) {
+    BOXEDWINE_CRITICAL_SECTION_WITH_CONDITION(processesCond);
+    for (auto& n : KSystem::processes) {
+        if (n.value) {
+            visitor(n.value);
+        }
+    }
+}
+
 U32 KSystem::getMilliesSinceStart() {
     if (!KSystem::adjustClock) {
         return KNativeSystem::getTicks();

@@ -176,6 +176,8 @@ public:
     static KThread* getThreadById(U32 threadId);
     static U32 getRunningProcessCount();
     static U32 getProcessCount();
+    // Calls visitor for each process while holding the process table lock.
+    static void visitProcesses(std::function<void(const KProcessPtr& process)> visitor);
     static void printStacks();
     static void wakeThreadsWaitingOnProcessStateChanged();    
 

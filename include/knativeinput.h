@@ -54,6 +54,12 @@ public:
 
     virtual void runOnUiThread(std::function<void()> callback) = 0;
 
+    // Input sent through the local server: the guest then sees this pointer
+    // position (screen pixels) and these NATIVE_*_MASK modifiers instead of
+    // the host's, until the host mouse moves over the window.
+    virtual void setInjectedPointer(int x, int y) {}
+    virtual void setInjectedModifiers(U32 modifiers) {}
+
     std::vector<std::function<void()>> onFocusGained;
     std::vector<std::function<void()>> onFocusLost;
 };
